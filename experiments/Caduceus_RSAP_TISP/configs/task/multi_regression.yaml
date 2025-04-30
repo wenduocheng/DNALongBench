@@ -1,0 +1,5 @@
+# _target_: tasks.tasks.BaseTask
+_name_: base
+loss: pseudo_poisson_kl
+metrics: pseudo_poisson_kl
+torchmetrics: null

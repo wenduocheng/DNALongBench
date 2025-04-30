@@ -1,0 +1,20 @@
+# @package _global_
+defaults:
+  - /trainer: default
+  - /loader: default
+  - /dataset: puffin
+  - /task: multi_regression
+  - /optimizer: adamw
+  - /scheduler: cosine_warmup
+  - /callbacks: [base, checkpoint]
+
+
+train:
+  monitor: val/loss
+  mode: min
+
+encoder: id
+
+# we need this for classification!
+decoder:
+  _name_: token

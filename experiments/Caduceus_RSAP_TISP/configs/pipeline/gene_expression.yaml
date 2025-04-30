@@ -1,0 +1,44 @@
+# @package _global_
+defaults:
+  - /trainer: default
+  - /loader: default
+  - /dataset: gene_expression
+  - /task: multi_regression
+  - /optimizer: adamw
+  - /scheduler: cosine_warmup
+  - /callbacks: [base, checkpoint]
+
+task:
+  loss: poisson_loss
+  metrics:
+    - pearson_corr_coef
+
+train:
+  monitor: val/loss
+  mode: min
+
+trainer:
+  accelerator: gpu
+  devices: 1
+  num_nodes: 1
+  precision: 16  # bf16 only a100
+  gradient_clip_val: 0.2
+  detect_anomaly: true # replace terminate_on_nan
+  check_val_every_n_epoch: null
+  val_check_interval: 100
+  limit_val_batches: 10
+  # strategy: null
+
+callbacks:
+  model_checkpoint:
+    every_n_train_steps: 100
+    filename: "{step:02d}"
+
+encoder: id
+
+# we need this for classification!
+decoder:
+  _name_: sequence
+  mode: center
+
+

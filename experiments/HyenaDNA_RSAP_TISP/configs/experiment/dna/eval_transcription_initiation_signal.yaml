@@ -90,4 +90,4 @@ train:
   seed: 2222
   global_batch_size: 32
   pretrained_model_strict_load: True  # false allows encoder/decoder to be used if new model uses it
-  pretrained_model_path: outputs/puffin/2024-07-18/03-16-42-584477/checkpoints/last.ckpt
+  pretrained_model_path: ./outputs/TISP/checkpoints/last.ckpt

@@ -1,6 +1,6 @@
 # @package _global_
 defaults:
-  - /pipeline: puffin
+  - /pipeline: gene_expression
   - override /scheduler: cosine_warmup_timm
 
 model:
@@ -29,49 +29,31 @@ model:
     wd: 0.0
     lr_pos_emb: 0.0
 
-task:
-  loss: pseudo_poisson_kl
-  metrics:
-    - pearson_corr_coef
-
 trainer:
-  accelerator: gpu
-  devices: 1
-  num_nodes: 1
   accumulate_grad_batches: ${div_up:${train.global_batch_size}, ${eval:${trainer.devices} * ${dataset.batch_size} * ${trainer.num_nodes}}}
-  # max_epochs: 10
-  max_steps: 100_000
-  precision: 32  # bf16 only a100
-  gradient_clip_val: 1.0
-  detect_anomaly: true # replace terminate_on_nan
-  val_check_interval: 50
-  check_val_every_n_epoch: null
-  limit_val_batches: 10
-  # strategy: null
-
-callbacks:
-  model_checkpoint:
-    every_n_train_steps: 300
 
 dataset:
   # batch_size: 32  # Per GPU
+  organism: 'mouse'
   batch_size: 2
   batch_size_eval: 2
-  max_length: 100000 # select max that you want for this dataset
-  dataset_name: 'puffin'
-  d_output: 10  # binary classification by default
+  max_length: 196608 # select max that you want for this dataset
+  dataset_name: 'enformer'
+  d_output: 1643  # target dimension
+  l_output: 896   # target length
   use_padding: False
   padding_side: 'right'
   add_eos: False
-  train_len: 100000  # update this according to above table
+  train_len: 196608  # update this according to above table
   __l_max: ${.max_length}
   tokenizer_name: char
   # rc_aug: true  # reverse complement augmentation.  Didn't seem to help for human_nontata_promoters, but could be wrong
 
+
 scheduler:
   t_in_epochs: False
   t_initial: ${eval:${div_up:${dataset.train_len}, ${train.global_batch_size}} * ${trainer.max_epochs}}
-  warmup_lr_init: 1e-6
+  warmup_lr_init: 5e-6
   warmup_t: ${eval:${div_up:${dataset.train_len}, ${train.global_batch_size}} * ${trainer.max_epochs} * 0.01}
   lr_min: ${eval:0.1 * ${optimizer.lr}}
 
@@ -84,8 +66,8 @@ train:
   remove_val_loader_in_eval: False
   remove_test_loader_in_eval: True  # no test set in this benchmark
   gpu_mem: ${eval:"round(float(__import__('subprocess').check_output('nvidia-smi -i 0 --query-gpu=memory.total --format=csv,noheader,nounits', shell=True).strip().decode()) / 1000)"}
-  seed: 3
-  global_batch_size: 16
+  seed: 2222
+  global_batch_size: 32
   pretrained_model_strict_load: False  # false allows encoder/decoder to be used if new model uses it
   # for loading backbone and not head, requires both of these flags below
   # pretrained_model_path: /local-scratch/nigam/projects/mwornow/projects/safari-internal/outputs/2023-04-14/2_128_1024.ckpt
@@ -97,4 +79,4 @@ train:
 
 hydra:
   run:
-    dir: ./outputs/TISP/${now:%Y-%m-%d}/${now:%H-%M-%S-%f}
+    dir: ./outputs/RSAP_mouse/${now:%Y-%m-%d}/${now:%H-%M-%S-%f}

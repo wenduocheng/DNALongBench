@@ -1,33 +1,12 @@
 # @package _global_
 defaults:
   - /pipeline: puffin
+  - /model: caduceus
   - override /scheduler: cosine_warmup_timm
 
 model:
-  _name_: dna_embedding
-  d_model: 256
-  n_layer: 8
-  d_inner: ${eval:4 * ${.d_model}}
-  vocab_size: 12
-  resid_dropout: 0.0
-  embed_dropout: 0.1
-  fused_mlp: False # figure out how to use fused MLP, maybe only with bf16 + a100
-  fused_dropout_add_ln: True
-  residual_in_fp32: True
-  pad_vocab_size_multiple: 8
-  checkpoint_mixer: True
-  checkpoint_mlp: True
-  layer:
-    _name_: hyena
-    emb_dim: 5
-    filter_order: 64
-    short_filter_order: 3
-    l_max: 450002  # required to be set the same as the pretrained model if using, don't forget the +2!  ${eval:${dataset.max_length}+2}
-    modulate: True
-    w: 10
-    lr: ${optimizer.lr}
-    wd: 0.0
-    lr_pos_emb: 0.0
+  _name_: dna_embedding_caduceus
+  conjoin_test: false
 
 task:
   loss: pseudo_poisson_kl
@@ -40,23 +19,20 @@ trainer:
   num_nodes: 1
   accumulate_grad_batches: ${div_up:${train.global_batch_size}, ${eval:${trainer.devices} * ${dataset.batch_size} * ${trainer.num_nodes}}}
   # max_epochs: 10
-  max_steps: 100_000
+  max_steps: 20_000
   precision: 32  # bf16 only a100
   gradient_clip_val: 1.0
   detect_anomaly: true # replace terminate_on_nan
-  val_check_interval: 50
+  val_check_interval: 300
   check_val_every_n_epoch: null
   limit_val_batches: 10
+  limit_test_batches: 1.0
   # strategy: null
-
-callbacks:
-  model_checkpoint:
-    every_n_train_steps: 300
 
 dataset:
   # batch_size: 32  # Per GPU
-  batch_size: 2
-  batch_size_eval: 2
+  batch_size: 4
+  batch_size_eval: 4
   max_length: 100000 # select max that you want for this dataset
   dataset_name: 'puffin'
   d_output: 10  # binary classification by default
@@ -80,21 +56,11 @@ optimizer:
   weight_decay: 0.1
 
 train:
-  validate_at_start: True
-  remove_val_loader_in_eval: False
-  remove_test_loader_in_eval: True  # no test set in this benchmark
+  test: True
+  remove_val_loader_in_eval: True
+  remove_test_loader_in_eval: False
   gpu_mem: ${eval:"round(float(__import__('subprocess').check_output('nvidia-smi -i 0 --query-gpu=memory.total --format=csv,noheader,nounits', shell=True).strip().decode()) / 1000)"}
-  seed: 3
-  global_batch_size: 16
-  pretrained_model_strict_load: False  # false allows encoder/decoder to be used if new model uses it
-  # for loading backbone and not head, requires both of these flags below
-  # pretrained_model_path: /local-scratch/nigam/projects/mwornow/projects/safari-internal/outputs/2023-04-14/2_128_1024.ckpt
-  pretrained_model_path: checkpoints/hyenadna-medium-450k-seqlen/weights.ckpt
-  pretrained_model_state_hook:
-    _name_: load_backbone
-    freeze_backbone: false  # seems to work much better if false (ie finetune entire model)
-
-
-hydra:
-  run:
-    dir: ./outputs/TISP/${now:%Y-%m-%d}/${now:%H-%M-%S-%f}
+  seed: 2222
+  global_batch_size: 32
+  pretrained_model_strict_load: True  # false allows encoder/decoder to be used if new model uses it
+  pretrained_model_path: ./outputs/TISP/checkpoints/last.ckpt

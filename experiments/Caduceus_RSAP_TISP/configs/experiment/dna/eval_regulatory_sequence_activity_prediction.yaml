@@ -1,0 +1,52 @@
+# @package _global_
+defaults:
+  - /pipeline: gene_expression
+  - /model: caduceus
+  - override /scheduler: cosine_warmup_timm
+
+model:
+  _name_: dna_embedding_caduceus
+  conjoin_test: false
+
+trainer:
+  limit_val_batches: 1.0
+  limit_test_batches: 1.0
+  # strategy: null
+
+dataset:
+  # batch_size: 32  # Per GPU
+  organism: 'human'
+  batch_size: 2
+  batch_size_eval: 1
+  max_length: 196608 # select max that you want for this dataset
+  dataset_name: 'enformer'
+  d_output: 5313  # target dimension
+  l_output: 896   # target length
+  use_padding: False
+  padding_side: 'right'
+  add_eos: False
+  train_len: 196608  # update this according to above table
+  __l_max: ${.max_length}
+  tokenizer_name: char
+  # rc_aug: true  # reverse complement augmentation.  Didn't seem to help for human_nontata_promoters, but could be wrong
+
+scheduler:
+  t_in_epochs: False
+  t_initial: ${eval:${div_up:${dataset.train_len}, ${train.global_batch_size}} * ${trainer.max_epochs}}
+  warmup_lr_init: 1e-6
+  warmup_t: ${eval:${div_up:${dataset.train_len}, ${train.global_batch_size}} * ${trainer.max_epochs} * 0.01}
+  lr_min: ${eval:0.1 * ${optimizer.lr}}
+
+optimizer:
+  lr: 6e-4
+  weight_decay: 0.1
+
+train:
+  test: True
+  remove_val_loader_in_eval: False
+  remove_test_loader_in_eval: True
+  gpu_mem: ${eval:"round(float(__import__('subprocess').check_output('nvidia-smi -i 0 --query-gpu=memory.total --format=csv,noheader,nounits', shell=True).strip().decode()) / 1000)"}
+  seed: 2222
+  global_batch_size: 32
+  pretrained_model_strict_load: True  # false allows encoder/decoder to be used if new model uses it
+  pretrained_model_path: ./outputs/RASP/checkpoints/last.ckpt

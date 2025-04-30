@@ -1,0 +1,9 @@
+_name_: gene_expression
+dataset_name: gene_expression
+max_length: 100000
+d_output: 5313 
+use_padding: False
+padding_side: 'right'
+add_eos: False
+__l_max: ${.max_length}
+shuffle: true  # set this as default!
