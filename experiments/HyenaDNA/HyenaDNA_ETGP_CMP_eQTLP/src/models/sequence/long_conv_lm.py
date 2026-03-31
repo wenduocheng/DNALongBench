@@ -581,7 +581,12 @@ class EQTLModel(nn.Module, GenerationMixin):
             **factory_kwargs,
             **kwargs,
         )
-        self.out_projection = nn.Linear(d_model, 2, bias=False)
+        self.out_projection = nn.Sequential(
+            nn.Linear(self.backbone.d_model * 2, self.backbone.d_model * 4),
+            nn.SiLU(),
+            nn.Linear(self.backbone.d_model * 4, self.backbone.d_model * 2),
+            nn.SiLU(),
+            nn.Linear(self.backbone.d_model * 2, 2))
         if process_group is None:
             self.lm_head = nn.Linear(d_model, vocab_size, bias=False, **factory_kwargs)
         else:
@@ -611,10 +616,13 @@ class EQTLModel(nn.Module, GenerationMixin):
             sync_shared_params(self, self.process_group)
 
     def forward(
-        self, input_ids, position_ids=None, inference_params=None, state=None
+        self, ref_ids, alt_ids, position_ids=None, inference_params=None, state=None
     ):  # state for the repo interface
-        hidden_states = self.backbone(
-            input_ids, position_ids=position_ids, inference_params=inference_params
+        ref_hidden_states = self.backbone(
+            ref_ids, position_ids=position_ids, inference_params=inference_params
+        )
+        alt_hidden_states = self.backbone(
+            alt_ids, position_ids=position_ids, inference_params=inference_params
         )
         lm_logits = self.lm_head(hidden_states)
         # During inference, we want the full logit for sampling
@@ -627,8 +635,8 @@ class EQTLModel(nn.Module, GenerationMixin):
         # CausalLMOutput = namedtuple("CausalLMOutput", ["logits"])
         # return CausalLMOutput(logits=lm_logits), None
         seq_prob = torch.softmax(lm_logits, dim=-1)
-        preds = torch.softmax(self.out_projection(hidden_states), dim=-1)
-        return seq_prob, preds
+        preds = torch.softmax(self.out_projection(torch.cat((ref_hidden_states, alt_hidden_states), -1)), dim=-1)
+        return preds
 
 
 class DNAEmbeddingModel(nn.Module, GenerationMixin):
