@@ -288,10 +288,7 @@ class EQTLTask(MultiClass):
         # z holds arguments such as sequence length
         x, y, z = batch # z holds extra dataloader info such as resolution
 
-        # prob, preds = model(x) # [B, L, d]
-        # print(z.shape)
-        # print(z.dtype)
-        preds = model(y)
+        preds = model(x, y)
 
         #assert preds.size(1) == z.size(1)
 
